@@ -1,0 +1,439 @@
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.ArrayList;
+
+
+public class SyntacticAnalyser {
+
+    public static ParseTree parse(List<Token> tokens) throws SyntaxException {
+    int tokenIndex = 0;
+    Deque<TreeNode> parseStack = new ArrayDeque<>();
+
+    ParseTree parseTree = new ParseTree();
+    TreeNode root = new TreeNode(TreeNode.Label.prog, null);  // Root node for the program
+    parseTree.setRoot(root);
+    parseStack.push(root);
+
+    while (!parseStack.isEmpty() && tokenIndex < tokens.size()) {
+        TreeNode currentNode = parseStack.pop();
+        Token currentToken = tokens.get(tokenIndex);
+
+        // Check if the current node is a terminal
+        if (isTerminal(currentNode.getLabel())) {
+            // Compare the token type with the expected terminal label
+            if (matchesTerminal(currentNode.getLabel(), currentToken)) {
+                tokenIndex++;  // Consume the token
+            } else {
+                throw new SyntaxException("Expected " + currentNode.getLabel() + " but found " + currentToken.getType());
+            }
+        } else {
+            // Apply grammar rule for non-terminal
+            List<TreeNode> children = applyRule(currentNode.getLabel(), currentToken);
+            for (int i = children.size() - 1; i >= 0; i--) {
+                parseStack.push(children.get(i));
+                currentNode.addChild(children.get(i));
+            }
+        }
+    }
+
+    if (!parseStack.isEmpty() || tokenIndex < tokens.size()) {
+        throw new SyntaxException("Parsing Error: Stack not empty or tokens remain unprocessed");
+    }
+
+    return parseTree;
+}
+
+// Method to check if a label is a terminal
+private static boolean isTerminal(TreeNode.Label label) {
+    return label == TreeNode.Label.publicToken ||
+           label == TreeNode.Label.classToken ||
+           label == TreeNode.Label.identifierToken ||
+           label == TreeNode.Label.lbrace ||
+           label == TreeNode.Label.rbrace ||
+           label == TreeNode.Label.staticToken ||
+           label == TreeNode.Label.voidToken ||
+           label == TreeNode.Label.mainToken ||
+           label == TreeNode.Label.lparen ||
+           label == TreeNode.Label.rparen ||
+           label == TreeNode.Label.stringArrToken ||
+           label == TreeNode.Label.argsToken ||
+           label == TreeNode.Label.semicolonToken ||
+           label == TreeNode.Label.assignToken ||
+           label == TreeNode.Label.plusToken ||
+           label == TreeNode.Label.minusToken ||
+           label == TreeNode.Label.timesToken ||
+           label == TreeNode.Label.divideToken ||
+           label == TreeNode.Label.modToken ||
+           label == TreeNode.Label.whileToken ||
+           label == TreeNode.Label.forToken ||
+           label == TreeNode.Label.ifToken ||
+           label == TreeNode.Label.printToken ||
+           label == TreeNode.Label.trueToken ||
+           label == TreeNode.Label.falseToken ||
+           label == TreeNode.Label.squoteToken ||
+           label == TreeNode.Label.charToken ||
+           label == TreeNode.Label.dquoteToken ||
+           label == TreeNode.Label.stringLitToken ||
+           label == TreeNode.Label.numToken;
+}
+
+// Method to check if the current token matches the expected terminal label
+private static boolean matchesTerminal(TreeNode.Label label, Token token) {
+    switch (label) {
+        case publicToken: return token.getType() == Token.TokenType.PUBLIC;
+        case classToken: return token.getType() == Token.TokenType.CLASS;
+        case identifierToken: return token.getType() == Token.TokenType.ID;
+        case lbrace: return token.getType() == Token.TokenType.LBRACE;
+        case rbrace: return token.getType() == Token.TokenType.RBRACE;
+        case staticToken: return token.getType() == Token.TokenType.STATIC;
+        case voidToken: return token.getType() == Token.TokenType.VOID;
+        case mainToken: return token.getType() == Token.TokenType.MAIN;
+        case lparen: return token.getType() == Token.TokenType.LPAREN;
+        case rparen: return token.getType() == Token.TokenType.RPAREN;
+        case stringArrToken: return token.getType() == Token.TokenType.STRINGARR;
+        case argsToken: return token.getType() == Token.TokenType.ARGS;
+        case semicolonToken: return token.getType() == Token.TokenType.SEMICOLON;
+        case assignToken: return token.getType() == Token.TokenType.ASSIGN;
+        case plusToken: return token.getType() == Token.TokenType.PLUS;
+        case minusToken: return token.getType() == Token.TokenType.MINUS;
+        case timesToken: return token.getType() == Token.TokenType.TIMES;
+        case divideToken: return token.getType() == Token.TokenType.DIVIDE;
+        case modToken: return token.getType() == Token.TokenType.MOD;
+        case whileToken: return token.getType() == Token.TokenType.WHILE;
+        case forToken: return token.getType() == Token.TokenType.FOR;
+        case ifToken: return token.getType() == Token.TokenType.IF;
+        case printToken: return token.getType() == Token.TokenType.PRINT;
+        case trueToken: return token.getType() == Token.TokenType.TRUE;
+        case falseToken: return token.getType() == Token.TokenType.FALSE;
+        case squoteToken: return token.getType() == Token.TokenType.SQUOTE;
+        case charToken: return token.getType() == Token.TokenType.CHARLIT;
+        case dquoteToken: return token.getType() == Token.TokenType.DQUOTE;
+        case stringLitToken: return token.getType() == Token.TokenType.STRINGLIT;
+        case numToken: return token.getType() == Token.TokenType.NUM;
+        case typeToken: return token.getType() == Token.TokenType.TYPE;
+        default: throw new IllegalStateException("Unexpected terminal label: " + label);
+    }
+
+}
+
+
+    // Apply the grammar rule for a non-terminal label
+    private static List<TreeNode> applyRule(TreeNode.Label label, Token currentToken) throws SyntaxException {
+    // Check if the label is a terminal, in which case no rules should be applied
+    if (isTerminal(label)) {
+        throw new UnsupportedOperationException("No rules defined for terminal label: " + label);
+    }
+
+    Map<Token.TokenType, List<TreeNode.Label>> rulesForLabel = grammarRules.get(label);
+    if (rulesForLabel == null) {
+        throw new UnsupportedOperationException("No rules defined for label: " + label);
+    }
+
+    List<TreeNode.Label> production = rulesForLabel.get(currentToken.getType());
+    if (production == null) {
+        throw new SyntaxException("No matching rule for " + label + " with token type " + currentToken.getType());
+    }
+
+    List<TreeNode> children = new ArrayList<>();
+    for (TreeNode.Label childLabel : production) {
+        TreeNode childNode = new TreeNode(childLabel, isTerminal(childLabel) ? currentToken : null);
+        children.add(childNode);
+    }
+
+    return children;
+}
+
+private static boolean isTerminalCheck(TreeNode.Label label) {
+    // Define the terminal tokens here
+    return label == TreeNode.Label.publicToken ||
+           label == TreeNode.Label.classToken ||
+           label == TreeNode.Label.identifierToken ||
+           label == TreeNode.Label.lbrace ||
+           label == TreeNode.Label.rbrace ||
+           label == TreeNode.Label.staticToken ||
+           label == TreeNode.Label.voidToken ||
+           label == TreeNode.Label.mainToken ||
+           label == TreeNode.Label.lparen ||
+           label == TreeNode.Label.rparen ||
+           label == TreeNode.Label.stringArrToken ||
+           label == TreeNode.Label.argsToken ||
+           label == TreeNode.Label.semicolonToken ||
+           label == TreeNode.Label.assignToken ||
+           label == TreeNode.Label.plusToken ||
+           label == TreeNode.Label.minusToken ||
+           label == TreeNode.Label.timesToken ||
+           label == TreeNode.Label.divideToken ||
+           label == TreeNode.Label.modToken ||
+           label == TreeNode.Label.whileToken ||
+           label == TreeNode.Label.forToken ||
+           label == TreeNode.Label.ifToken ||
+           label == TreeNode.Label.printToken ||
+           label == TreeNode.Label.trueToken ||
+           label == TreeNode.Label.falseToken ||
+           label == TreeNode.Label.squoteToken ||
+           label == TreeNode.Label.charToken ||
+           label == TreeNode.Label.dquoteToken ||
+           label == TreeNode.Label.stringLitToken ||
+           label == TreeNode.Label.numToken ||
+           label == TreeNode.Label.typeToken; 
+}
+
+    // Grammar rules for the syntactic analysis
+    private static final Map<TreeNode.Label, Map<Token.TokenType, List<TreeNode.Label>>> grammarRules = new HashMap<>();
+
+static {
+    // Grammar rule for prog → public class IDENTIFIER { public static void main(String[] args) { <los> } }
+    Map<Token.TokenType, List<TreeNode.Label>> progRules = new HashMap<>();
+    progRules.put(Token.TokenType.PUBLIC, Arrays.asList(
+        TreeNode.Label.publicToken,   // public
+        TreeNode.Label.classToken,    // class
+        TreeNode.Label.identifierToken, // IDENTIFIER
+        TreeNode.Label.lbrace,        // {
+        TreeNode.Label.publicToken,   // public
+        TreeNode.Label.staticToken,   // static
+        TreeNode.Label.voidToken,     // void
+        TreeNode.Label.mainToken,     // main
+        TreeNode.Label.lparen,        // (
+        TreeNode.Label.stringArrToken, // String[]
+        TreeNode.Label.argsToken,     // args
+        TreeNode.Label.rparen,        // )
+        TreeNode.Label.lbrace,        // {
+        TreeNode.Label.los,           // <los>
+        TreeNode.Label.rbrace,        // }
+        TreeNode.Label.rbrace         // }
+    ));
+    grammarRules.put(TreeNode.Label.prog, progRules);
+
+    // Rules for <los> → <stat> <los> | ε
+    Map<Token.TokenType, List<TreeNode.Label>> losRules = new HashMap<>();
+    losRules.put(Token.TokenType.WHILE, Arrays.asList(TreeNode.Label.stat, TreeNode.Label.los));
+    losRules.put(Token.TokenType.FOR, Arrays.asList(TreeNode.Label.stat, TreeNode.Label.los));
+    losRules.put(Token.TokenType.IF, Arrays.asList(TreeNode.Label.stat, TreeNode.Label.los));
+    losRules.put(Token.TokenType.ID, Arrays.asList(TreeNode.Label.stat, TreeNode.Label.los));
+    losRules.put(Token.TokenType.TYPE, Arrays.asList(TreeNode.Label.stat, TreeNode.Label.los)); // Handle type declarations
+    losRules.put(Token.TokenType.PRINT, Arrays.asList(TreeNode.Label.stat, TreeNode.Label.los));
+    losRules.put(Token.TokenType.SEMICOLON, Arrays.asList(TreeNode.Label.stat, TreeNode.Label.los));
+    losRules.put(Token.TokenType.RBRACE, Arrays.asList());  // ε (epsilon)
+    grammarRules.put(TreeNode.Label.los, losRules);
+
+    // Rules for <stat> → <while> | <for> | <if> | <assign> ; | <decl> ; | <print> ; | ;
+    Map<Token.TokenType, List<TreeNode.Label>> statRules = new HashMap<>();
+    statRules.put(Token.TokenType.WHILE, Arrays.asList(TreeNode.Label.whilestat));
+    statRules.put(Token.TokenType.FOR, Arrays.asList(TreeNode.Label.forstat));
+    statRules.put(Token.TokenType.IF, Arrays.asList(TreeNode.Label.ifstat));
+    statRules.put(Token.TokenType.ID, Arrays.asList(TreeNode.Label.assign, TreeNode.Label.semicolonToken));  // assign ;
+    statRules.put(Token.TokenType.TYPE, Arrays.asList(TreeNode.Label.decl, TreeNode.Label.semicolonToken));   // decl ;  (for variable declarations)
+    statRules.put(Token.TokenType.PRINT, Arrays.asList(TreeNode.Label.print, TreeNode.Label.semicolonToken));   // print ;
+    statRules.put(Token.TokenType.SEMICOLON, Arrays.asList(TreeNode.Label.semicolonToken));  // ;
+    grammarRules.put(TreeNode.Label.stat, statRules);
+
+    // Rules for <while> → while ( <relexpr> <boolexpr> ) { <los> }
+    Map<Token.TokenType, List<TreeNode.Label>> whileRules = new HashMap<>();
+    whileRules.put(Token.TokenType.WHILE, Arrays.asList(
+        TreeNode.Label.whileToken,    // while
+        TreeNode.Label.lparen,        // (
+        TreeNode.Label.relexpr,       // <rel expr>
+        TreeNode.Label.boolexpr,      // <bool expr>
+        TreeNode.Label.rparen,        // )
+        TreeNode.Label.lbrace,        // {
+        TreeNode.Label.los,           // <los>
+        TreeNode.Label.rbrace         // }
+    ));
+    grammarRules.put(TreeNode.Label.whilestat, whileRules);
+
+    // Rules for <for> → for ( <forstart> ; <relexpr> <boolexpr> ; <forarith> ) { <los> }
+    Map<Token.TokenType, List<TreeNode.Label>> forRules = new HashMap<>();
+    forRules.put(Token.TokenType.FOR, Arrays.asList(
+        TreeNode.Label.forToken,      // for
+        TreeNode.Label.lparen,        // (
+        TreeNode.Label.forstart,      // <forstart>
+        TreeNode.Label.semicolonToken, // ;
+        TreeNode.Label.relexpr,       // <rel expr>
+        TreeNode.Label.boolexpr,      // <bool expr>
+        TreeNode.Label.semicolonToken, // ;
+        TreeNode.Label.forarith,      // <forarith>
+        TreeNode.Label.rparen,        // )
+        TreeNode.Label.lbrace,        // {
+        TreeNode.Label.los,           // <los>
+        TreeNode.Label.rbrace         // }
+    ));
+    grammarRules.put(TreeNode.Label.forstat, forRules);
+
+    // Rules for <if> → if ( <relexpr> <bool expr> ) { <los> } <else if>
+    Map<Token.TokenType, List<TreeNode.Label>> ifRules = new HashMap<>();
+    ifRules.put(Token.TokenType.IF, Arrays.asList(
+        TreeNode.Label.ifToken,       // if
+        TreeNode.Label.lparen,        // (
+        TreeNode.Label.relexpr,       // <rel expr>
+        TreeNode.Label.boolexpr,      // <bool expr>
+        TreeNode.Label.rparen,        // )
+        TreeNode.Label.lbrace,        // {
+        TreeNode.Label.los,           // <los>
+        TreeNode.Label.rbrace,        // }
+        TreeNode.Label.elseifstat     // <else if>
+    ));
+    grammarRules.put(TreeNode.Label.ifstat, ifRules);
+
+    // Rules for <else if> → <else?if> { <los> } <else if> | ε
+    Map<Token.TokenType, List<TreeNode.Label>> elseIfRules = new HashMap<>();
+    elseIfRules.put(Token.TokenType.ELSE, Arrays.asList(
+        TreeNode.Label.elseorelseif,  // <else?if>
+        TreeNode.Label.lbrace,        // {
+        TreeNode.Label.los,           // <los>
+        TreeNode.Label.rbrace,        // }
+        TreeNode.Label.elseifstat     // <else if>
+    ));
+    elseIfRules.put(Token.TokenType.RBRACE, Arrays.asList());  // ε (epsilon)
+    grammarRules.put(TreeNode.Label.elseifstat, elseIfRules);
+
+    // Rules for <assign> → <ID> = <expr>
+    Map<Token.TokenType, List<TreeNode.Label>> assignRules = new HashMap<>();
+    assignRules.put(Token.TokenType.ID, Arrays.asList(
+        TreeNode.Label.identifierToken, // ID
+        TreeNode.Label.assignToken,     // =
+        TreeNode.Label.expr             // <expr>
+    ));
+    grammarRules.put(TreeNode.Label.assign, assignRules);
+
+    // Rules for <decl> → <type> <ID> <possassign>
+    Map<Token.TokenType, List<TreeNode.Label>> declRules = new HashMap<>();
+    declRules.put(Token.TokenType.TYPE, Arrays.asList(TreeNode.Label.typeToken, TreeNode.Label.identifierToken, TreeNode.Label.possassign));  // <type> <ID> <possassign>
+    grammarRules.put(TreeNode.Label.decl, declRules);
+
+    // Rules for <type> → int | boolean | char
+    Map<Token.TokenType, List<TreeNode.Label>> typeRules = new HashMap<>();
+    typeRules.put(Token.TokenType.TYPE, Arrays.asList(TreeNode.Label.typeToken));  // Handle all types as terminal tokens (e.g., int, boolean, etc.)
+    grammarRules.put(TreeNode.Label.type, typeRules);
+
+    // Rules for <possassign> → = <expr> | ε
+    Map<Token.TokenType, List<TreeNode.Label>> possAssignRules = new HashMap<>();
+    possAssignRules.put(Token.TokenType.ASSIGN, Arrays.asList(TreeNode.Label.assignToken, TreeNode.Label.expr));  // = <expr>
+    possAssignRules.put(Token.TokenType.SEMICOLON, Arrays.asList());  // ε (empty production when there's no assignment)
+    grammarRules.put(TreeNode.Label.possassign, possAssignRules);
+
+    // Rules for <charexpr> → ' <char> '
+    Map<Token.TokenType, List<TreeNode.Label>> charExprRules = new HashMap<>();
+    charExprRules.put(Token.TokenType.SQUOTE, Arrays.asList(
+        TreeNode.Label.squoteToken,   // '
+        TreeNode.Label.charToken,     // <char>
+        TreeNode.Label.squoteToken    // '
+    ));
+    grammarRules.put(TreeNode.Label.charexpr, charExprRules);
+
+    // Rules for <bool expr> → <bool op> <rel expr> <bool expr> | ε
+    Map<Token.TokenType, List<TreeNode.Label>> boolExprRules = new HashMap<>();
+    boolExprRules.put(Token.TokenType.AND, Arrays.asList(TreeNode.Label.boolop, TreeNode.Label.relexpr, TreeNode.Label.boolexpr));
+    boolExprRules.put(Token.TokenType.OR, Arrays.asList(TreeNode.Label.boolop, TreeNode.Label.relexpr, TreeNode.Label.boolexpr));
+    boolExprRules.put(Token.TokenType.RPAREN, Arrays.asList());  // ε (epsilon)
+    grammarRules.put(TreeNode.Label.boolexpr, boolExprRules);
+
+    // Rules for <rel expr> → <arith expr> <rel expr'> | true | false
+    Map<Token.TokenType, List<TreeNode.Label>> relExprRules = new HashMap<>();
+    relExprRules.put(Token.TokenType.ID, Arrays.asList(TreeNode.Label.arithexpr, TreeNode.Label.relexprprime));
+    relExprRules.put(Token.TokenType.NUM, Arrays.asList(TreeNode.Label.arithexpr, TreeNode.Label.relexprprime));
+    relExprRules.put(Token.TokenType.TRUE, Arrays.asList(TreeNode.Label.trueToken));  // true
+    relExprRules.put(Token.TokenType.FALSE, Arrays.asList(TreeNode.Label.falseToken)); // false
+    grammarRules.put(TreeNode.Label.relexpr, relExprRules);
+
+    // Rules for <arith expr> → <term> <arith expr'>
+    Map<Token.TokenType, List<TreeNode.Label>> arithExprRules = new HashMap<>();
+    arithExprRules.put(Token.TokenType.ID, Arrays.asList(TreeNode.Label.term, TreeNode.Label.arithexprprime));
+    arithExprRules.put(Token.TokenType.NUM, Arrays.asList(TreeNode.Label.term, TreeNode.Label.arithexprprime));
+    grammarRules.put(TreeNode.Label.arithexpr, arithExprRules);
+
+    // Rules for <arith expr'> → + <term> <arith expr'> | - <term> <arith expr'> | ε
+    Map<Token.TokenType, List<TreeNode.Label>> arithExprPrimeRules = new HashMap<>();
+    arithExprPrimeRules.put(Token.TokenType.PLUS, Arrays.asList(TreeNode.Label.plusToken, TreeNode.Label.term, TreeNode.Label.arithexprprime));
+    arithExprPrimeRules.put(Token.TokenType.MINUS, Arrays.asList(TreeNode.Label.minusToken, TreeNode.Label.term, TreeNode.Label.arithexprprime));
+    arithExprPrimeRules.put(Token.TokenType.RPAREN, Arrays.asList());  // ε (epsilon)
+    grammarRules.put(TreeNode.Label.arithexprprime, arithExprPrimeRules);
+
+    // Rules for <term> → <factor> <term'>
+    Map<Token.TokenType, List<TreeNode.Label>> termRules = new HashMap<>();
+    termRules.put(Token.TokenType.ID, Arrays.asList(TreeNode.Label.factor, TreeNode.Label.termprime));
+    termRules.put(Token.TokenType.NUM, Arrays.asList(TreeNode.Label.factor, TreeNode.Label.termprime));
+    grammarRules.put(TreeNode.Label.term, termRules);
+
+    // Rules for <term'> → * <factor> <term'> | / <factor> <term'> | % <factor> <term'> | ε
+    Map<Token.TokenType, List<TreeNode.Label>> termprimeRules = new HashMap<>();
+    termprimeRules.put(Token.TokenType.TIMES, Arrays.asList(TreeNode.Label.timesToken, TreeNode.Label.factor, TreeNode.Label.termprime));
+    termprimeRules.put(Token.TokenType.DIVIDE, Arrays.asList(TreeNode.Label.divideToken, TreeNode.Label.factor, TreeNode.Label.termprime));
+    termprimeRules.put(Token.TokenType.MOD, Arrays.asList(TreeNode.Label.modToken, TreeNode.Label.factor, TreeNode.Label.termprime));
+    termprimeRules.put(Token.TokenType.RPAREN, Arrays.asList());  // ε (epsilon)
+    grammarRules.put(TreeNode.Label.termprime, termprimeRules);
+
+    // Rules for <factor> → ( <arith expr> ) | <ID> | <num>
+    Map<Token.TokenType, List<TreeNode.Label>> factorRules = new HashMap<>();
+    factorRules.put(Token.TokenType.LPAREN, Arrays.asList(TreeNode.Label.lparen, TreeNode.Label.arithexpr, TreeNode.Label.rparen));  // ( <arith expr> )
+    factorRules.put(Token.TokenType.ID, Arrays.asList(TreeNode.Label.identifierToken));  // <ID>
+    factorRules.put(Token.TokenType.NUM, Arrays.asList(TreeNode.Label.numToken));  // <num>
+    grammarRules.put(TreeNode.Label.factor, factorRules);
+
+    // Rules for <print> → System.out.println ( <print expr> )
+    Map<Token.TokenType, List<TreeNode.Label>> printRules = new HashMap<>();
+    printRules.put(Token.TokenType.PRINT, Arrays.asList(
+        TreeNode.Label.printToken,  // System.out.println
+        TreeNode.Label.lparen,      // (
+        TreeNode.Label.printexpr,   // <print expr>
+        TreeNode.Label.rparen       // )
+    ));
+    grammarRules.put(TreeNode.Label.print, printRules);
+
+    // Rules for <print expr> → <rel expr> <bool expr> | " <string lit> "
+    Map<Token.TokenType, List<TreeNode.Label>> printexprRules = new HashMap<>();
+    printexprRules.put(Token.TokenType.ID, Arrays.asList(TreeNode.Label.relexpr, TreeNode.Label.boolexpr));
+    printexprRules.put(Token.TokenType.NUM, Arrays.asList(TreeNode.Label.relexpr, TreeNode.Label.boolexpr));
+    printexprRules.put(Token.TokenType.TRUE, Arrays.asList(TreeNode.Label.relexpr, TreeNode.Label.boolexpr));
+    printexprRules.put(Token.TokenType.FALSE, Arrays.asList(TreeNode.Label.relexpr, TreeNode.Label.boolexpr));
+    printexprRules.put(Token.TokenType.DQUOTE, Arrays.asList(TreeNode.Label.dquoteToken, TreeNode.Label.stringLitToken, TreeNode.Label.dquoteToken));  // " <string lit> "
+    grammarRules.put(TreeNode.Label.printexpr, printexprRules);
+}
+
+	
+
+}
+
+// The following class may be helpful.
+
+class Pair<A, B> {
+	private final A a;
+	private final B b;
+
+	public Pair(A a, B b) {
+		this.a = a;
+		this.b = b;
+	}
+
+	public A fst() {
+		return a;
+	}
+
+	public B snd() {
+		return b;
+	}
+
+	@Override
+	public int hashCode() {
+		return 3 * a.hashCode() + 7 * b.hashCode();
+	}
+
+	@Override
+	public String toString() {
+		return "{" + a + ", " + b + "}";
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if ((o instanceof Pair<?, ?>)) {
+			Pair<?, ?> other = (Pair<?, ?>) o;
+			return other.fst().equals(a) && other.snd().equals(b);
+		}
+
+		return false;
+	}
+
+}
